@@ -1,0 +1,157 @@
+---
+title: "R_Finviz功能作业"
+author: "胡杨 孟雯博 王琛"
+date: "2019/11/9"
+output: html_document
+---
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(treemap)
+library(quantmod)
+library(data.table)
+library(dplyr)
+library(quantmod)
+library(treemap)
+
+
+
+```
+
+
+## 功能1：绘制堆积柱状图
+```{r}
+#导入数据#
+barchart1<-read.csv("C:/Users/Administrator/Desktop/homework/data/barchart1.csv")
+
+#condition        
+#china          
+#PrevClpr      前收盘价    
+#Oppr      开盘价     
+#Hipr      最高价     
+#Lopr      最低价     
+#Clpr      收盘价     
+#difference           
+#df.type 
+head(barchart1)
+
+
+
+
+# 绘制堆积柱状图,反映2019年8月20日股票涨跌所占比重#
+barchart1=as.data.table(barchart1)
+x=nrow(barchart1[df.type=="advancing"])
+y=nrow(barchart1[df.type=="no change"])
+z=nrow(barchart1[df.type=="declning"])
+count=c(x,y,z) #分别计算上涨、下跌、不变的股票有多少#
+percent=c(round(x/(x+y+z)*100,2),round(y/(x+y+z)*100,2),round(z/(x+y+z)*100,2))#计算各部分所占比例#
+group=c("advancing","no change","declning")
+p<-c(96,4,20)#设置位置参数#
+p_g<-c(96,4,20)#设置位置参数#
+data=data.frame(group,percent,p,count,p_g)#将处理后的数据合成数据框#
+ggplot(data,aes(' ',percent,fill=group))+
+  geom_bar(stat="identity",position="stack",width = 0.05)+ #stack:堆积柱状图，width:柱状图宽度
+  theme_bw()+
+  #scale_fill_brewer(palette='Set1')+ #柱状图颜色，使用RColorBrewer
+  scale_fill_manual(values=c("#FF6666","#CCCCCC","#66CC33"))+
+ 
+  #显示数字
+  geom_text(aes(y=p,label=paste(percent,'%',sep = '')),size=3,col='white')+
+  geom_text(aes(y=p_g,label=group),size=3,col='black',vjust=-1.5)+
+  guides(fill=guide_legend(title=NULL))+ #不显示标题
+  guides(fill=F)  + #不显示图例
+  #不显示各种图标
+  theme(panel.grid = element_blank(),panel.border = element_blank(),
+        axis.text = element_blank(),axis.ticks = element_blank(),
+        text = element_blank())+
+  coord_flip() #将图形横纵坐标互换
+```
+
+
+## 功能2：绘制日k线图
+```{r K线图}
+# 从yahoo导入数据，选取的是2019年1月1日至2019年5月30日谷歌的数据#
+getSymbols("GOOG",src="yahoo",from="2019-01-01", to='2019-05-30') 
+#绘制k线图#
+chartSeries(GOOG,theme = 'white',name='谷歌',TA=NULL,up.col = 'red',dn.col = 'green',color.vol=FALSE)
+```
+
+
+## 功能3：绘制股指期货日收益率条形图
+```{r}
+#导入数据#
+res3=read.csv("C:/Users/Administrator/Desktop/homework/data/forward.csv",header=T)
+
+#contNm    合约名称
+#clPrLim     收盘价涨跌幅 (%)
+#处理数据#
+mydata=as.data.table(res3)
+mydata1=setorder(mydata,clPrLim)
+mydata2=as.data.frame(mydata1)
+aMat<-as.data.table(mydata2)
+aMat=as.data.frame(aMat)
+H=aMat[,2]
+H=as.numeric(H)
+M=aMat[,1]
+
+#绘制条形图#
+x<-barplot(abs(H),names.arg =M,las=1,cex.names =0.5,horiz = T,border = NA,width=0.1,xlim = c(0,1),col=colorRampPalette(c("green", "red"))(33))
+text(x=abs(H),y=x,H,cex = 0.5)
+
+```
+
+
+## 功能4：绘制行业矩形树图
+```{r}
+#导入数据#
+data.try=read.csv("C:/Users/Administrator/Desktop/homework/data/data.try.csv",header=T)
+
+#Stkcd      股票代码
+#Lstknm     最新股票名称
+#Csrciccd1    证监会行业门类代码
+#Csrciccd2    证监会行业大类代码
+#Oppr    开盘价
+#Clpr    收盘价
+#upsdowns 变化率
+#DmcCNY    市值
+head(data.try)
+#更改颜色
+data.try$color <- rainbow(nlevels(data.try$Lstknm))[data.try$Lstknm]  
+color <- c( "#9E3649", "#FF0017","#008B4F", "#00AE51")
+palette.HCL.options <- list(hue_start=270, hue_end=360+150)
+#绘制矩形树图#
+treemap(
+  data.try,
+  index=c("Csrciccd2","Lstknm"),
+  vSize="DmcCNY",
+  vColor="upsdowns",
+  type="value",
+  palette=(values=color),
+  format.legend = list(scientific = FALSE, big.mark = " "),
+  fontsize.title=0,
+  fontsize.legend=0,
+  fontcolor.labels="white",fontface.labels=2,fontsize.labels = c(12,20),
+  bg.labels=0,
+  align.labels=list(c("left", "top"), c("center", "center")),
+  overlap.labels=0
+)
+```
+
+
+## 功能5：绘制行业气泡图#
+```{r}
+mydata3 <- read.csv('C:/Users/Administrator/Desktop/homework/data/try.csv',header=T)#导入数据#
+mydata3=mydata3[order(mydata3$sector1),]#按部门进行排序#
+ID=c(1:424)
+mydata3<-data.frame(ID,mydata3)#添加ID#
+
+ggplot(data=mydata3, mapping=aes(x=ID,y=upsdowns,color=factor(sector1)))+
+  geom_point(stat= "identity",aes(size=DMC),alpha=0.7,show.legend = TRUE)+ 
+  guides(color=guide_legend(title="sector1"))+
+  scale_size(range = c(1, 20),guide=FALSE)+
+  labs(x='sector',y='change',title='price change')#画图#
+```
+
+ 
+
+
